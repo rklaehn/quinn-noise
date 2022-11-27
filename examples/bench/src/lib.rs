@@ -1,6 +1,6 @@
 use std::{
     convert::TryInto,
-    net::{IpAddr, Ipv6Addr, SocketAddr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
     num::ParseIntError,
     str::FromStr,
     sync::Arc,
@@ -10,10 +10,14 @@ use anyhow::{Context, Result};
 use bytes::Bytes;
 use clap::Parser;
 use ed25519_dalek::Keypair;
-use quinn::crypto::HandshakeTokenKey;
+use quinn::{crypto::HandshakeTokenKey, EndpointConfig, TokioRuntime};
 use rand::rngs::OsRng;
 use tokio::runtime::{Builder, Runtime};
 use tracing::trace;
+// const ENDPOINT_CONFIG_MAX_UDP_PAYLOAD_SIZE: u64 = 12319;
+// const INITIAL_MAX_UDP_PAYLOAD_SIZE: u16 = 12319;
+const ENDPOINT_CONFIG_MAX_UDP_PAYLOAD_SIZE: u64 = 9200;
+const INITIAL_MAX_UDP_PAYLOAD_SIZE: u16 = 9200;
 
 pub mod stats;
 
@@ -52,13 +56,18 @@ pub fn server_endpoint(
     let mut server_config = quinn::ServerConfig::new(crypto, Arc::new(DummyHandshakeTokenYey));
     server_config.transport = Arc::new(transport_config(opt));
 
+    let socket: UdpSocket =
+        UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).unwrap();
+    let mut endpoint_config = EndpointConfig::default();
+    endpoint_config.max_udp_payload_size(ENDPOINT_CONFIG_MAX_UDP_PAYLOAD_SIZE).unwrap();
     let endpoint = {
         let _guard = rt.enter();
-        quinn::Endpoint::server(
-            server_config,
-            SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 0),
-        )
-        .unwrap()
+        quinn::Endpoint::new(endpoint_config, Some(server_config), socket, TokioRuntime).unwrap()
+        // quinn::Endpoint::server(
+        //     server_config,
+        //     SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0),
+        // )
+        // .unwrap()
     };
     let server_addr = endpoint.local_addr().unwrap();
     (server_addr, endpoint)
@@ -70,8 +79,17 @@ pub async fn connect_client(
     remote_public_key: ed25519_dalek::PublicKey,
     opt: Opt,
 ) -> Result<(quinn::Endpoint, quinn::Connection)> {
-    let endpoint =
-        quinn::Endpoint::client(SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 0)).unwrap();
+    let mut endpoint_config = EndpointConfig::default();
+    endpoint_config.max_udp_payload_size(ENDPOINT_CONFIG_MAX_UDP_PAYLOAD_SIZE).unwrap();
+    let endpoint = quinn::Endpoint::new(
+        endpoint_config,
+        None,
+        UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).unwrap(),
+        TokioRuntime,
+    )
+    .unwrap();
+    // let endpoint =
+    //     quinn::Endpoint::client(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).unwrap();
     let mut csprng = OsRng {};
     let keypair: Keypair = Keypair::generate(&mut csprng);
     let crypto = quinn_noise::NoiseConfig::from(quinn_noise::NoiseClientConfig {
@@ -158,6 +176,8 @@ pub fn transport_config(opt: &Opt) -> quinn::TransportConfig {
     // High stream windows are chosen because the amount of concurrent streams
     // is configurable as a parameter.
     let mut config = quinn::TransportConfig::default();
+    // config.initial_max_udp_payload_size(1472);
+    config.initial_max_udp_payload_size(INITIAL_MAX_UDP_PAYLOAD_SIZE);
     config.max_concurrent_uni_streams(opt.max_streams.try_into().unwrap());
     config
 }

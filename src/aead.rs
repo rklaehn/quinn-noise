@@ -24,6 +24,8 @@ impl ChaCha8PacketKey {
 
 impl PacketKey for ChaCha8PacketKey {
     fn encrypt(&self, packet: u64, buf: &mut [u8], header_len: usize) {
+        // println!("encrypting packet {}", buf.len());
+        // println!("encrypting packet {}", buf.len());
         // let mut nonce = [0; 12];
         // nonce[4..].copy_from_slice(&packet.to_le_bytes());
         // let nonce = Nonce::from(nonce);
@@ -42,6 +44,7 @@ impl PacketKey for ChaCha8PacketKey {
         header: &[u8],
         payload: &mut BytesMut,
     ) -> Result<(), CryptoError> {
+        // println!("decrypting packet {}", payload.len());
         // let mut nonce = [0; 12];
         // nonce[4..].copy_from_slice(&packet.to_le_bytes());
         // let nonce = Nonce::from(nonce);
