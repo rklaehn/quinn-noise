@@ -24,16 +24,16 @@ impl ChaCha8PacketKey {
 
 impl PacketKey for ChaCha8PacketKey {
     fn encrypt(&self, packet: u64, buf: &mut [u8], header_len: usize) {
-        let mut nonce = [0; 12];
-        nonce[4..].copy_from_slice(&packet.to_le_bytes());
-        let nonce = Nonce::from(nonce);
-        let (header, payload) = buf.split_at_mut(header_len);
-        let (content, auth) = payload.split_at_mut(payload.len() - self.tag_len());
-        let tag = self
-            .0
-            .encrypt_in_place_detached(&nonce, header, content)
-            .unwrap();
-        auth.copy_from_slice(&tag);
+        // let mut nonce = [0; 12];
+        // nonce[4..].copy_from_slice(&packet.to_le_bytes());
+        // let nonce = Nonce::from(nonce);
+        // let (header, payload) = buf.split_at_mut(header_len);
+        // let (content, auth) = payload.split_at_mut(payload.len() - self.tag_len());
+        // let tag = self
+        //     .0
+        //     .encrypt_in_place_detached(&nonce, header, content)
+        //     .unwrap();
+        // auth.copy_from_slice(&tag);
     }
 
     fn decrypt(
@@ -42,16 +42,16 @@ impl PacketKey for ChaCha8PacketKey {
         header: &[u8],
         payload: &mut BytesMut,
     ) -> Result<(), CryptoError> {
-        let mut nonce = [0; 12];
-        nonce[4..].copy_from_slice(&packet.to_le_bytes());
-        let nonce = Nonce::from(nonce);
-        let len = payload.len() - self.tag_len();
-        let (content, tag) = payload.split_at_mut(len);
-        let tag = Tag::from_slice(tag);
-        self.0
-            .decrypt_in_place_detached(&nonce, header, content, tag)
-            .map_err(|_| CryptoError)?;
-        payload.truncate(len);
+        // let mut nonce = [0; 12];
+        // nonce[4..].copy_from_slice(&packet.to_le_bytes());
+        // let nonce = Nonce::from(nonce);
+        // let len = payload.len() - self.tag_len();
+        // let (content, tag) = payload.split_at_mut(len);
+        // let tag = Tag::from_slice(tag);
+        // self.0
+        //     .decrypt_in_place_detached(&nonce, header, content, tag)
+        //     .map_err(|_| CryptoError)?;
+        // payload.truncate(len);
         Ok(())
     }
 
